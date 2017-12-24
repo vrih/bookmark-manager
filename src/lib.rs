@@ -4,8 +4,7 @@ extern crate time;
 use crypto::md5::Md5;
 use crypto::digest::Digest;
 use std::fmt;
-//use std::error::Error;
-
+use std::env;
 
 use std::string::String;
 
@@ -16,8 +15,8 @@ use std::fs::File;
 pub struct Bookmark {
     pub hash: String,
     created_at: time::Tm,
-    label: String,
-    url: String,
+    pub label: String,
+    pub url: String,
     title: String,
     tags: String,
     //image: &'a str,
@@ -67,7 +66,12 @@ impl fmt::Display for Bookmark {
 }
 
 pub fn html_output(bookmarks: Vec<Bookmark>) -> String {
-    let mut file = File::open("/home/daniel/GIT/bookmark-manager/resources/template.html").expect("Unable to open the file");
+    let image_path = match env::var("RBM_BASE"){
+        Ok(a) => a,
+        Err(e) => panic!("Set RBM_BASE env")
+    };
+    
+    let mut file = File::open(format!("{}/.template.html", &image_path)).expect("Unable to open the file");
     let mut contents = String::new();
     file.read_to_string(&mut contents).expect("Unable to read the file");
     

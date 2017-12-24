@@ -1,7 +1,6 @@
 extern crate clap;
 extern crate rbmlib;
 
-
 //icon
 extern crate select;
 extern crate reqwest;
@@ -31,11 +30,6 @@ fn list_bookmarks(path: &str) -> Result<(), io::Error>{
 }
 
 fn add_bookmark(path: &str, url: &str, title: &str, tags: &str) -> Result<(), io::Error>{
-    let image_path = match env::var("RBM_BASE"){
-        Ok(a) => a,
-        Err(e) => panic!("Set RBM_BASE env")
-    };
-    
     let f = OpenOptions::new()
         .append(true)
         .open(path)
@@ -44,17 +38,29 @@ fn add_bookmark(path: &str, url: &str, title: &str, tags: &str) -> Result<(), io
     let b = Bookmark::new_from_input(String::from(url), String::from(title), String::from(tags));
     let c = b.output();
     writeln!(&f, "{}", c).unwrap();
-    let mut fs_path:String = image_path;
-    fs_path.push_str("/.bm.shots/");
-    fs_path.push_str(&b.hash);
-    fs_path.push_str(".png");
+    let fs_path = image_path(&b.hash);
     println!("{}", fs_path);
-    update_image(url, &fs_path);
-    Ok(())
+    update_image(url, &fs_path)
+}
+
+fn image_path(hash: &str) -> String{
+    let image_path = match env::var("RBM_BASE"){
+        Ok(a) => a,
+        Err(_e) => panic!("Set RBM_BASE env")
+    };
+
+    format!("{}/.bm.shots/{}.png", &image_path, hash)
 }
 
 fn output_html(path: &str) -> Result<(), io::Error>{
     let mut bs: Vec<Bookmark> = Vec::new();
+    
+    let directory_path = match env::var("RBM_BASE"){
+        Ok(a) => a,
+        Err(_e) => panic!("Set RBM_BASE env")
+    };
+
+    let directory_path = format!("{}/bm.html", directory_path);
 
     let f = try!(File::open(path));
     let file = BufReader::new(&f);
@@ -64,17 +70,19 @@ fn output_html(path: &str) -> Result<(), io::Error>{
         bs.push(b);
     }
     
+    let fo = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(directory_path)
+        .unwrap();
+    
     let a = rbmlib::html_output(bs);
-
-    println!("{}", a);
-    Ok(())
+    write!(&fo, "{}", a)
 }
 
-fn update_image(path: &str, fs_path: &str) -> Result<(), String>{
+fn update_image(path: &str, fs_path: &str) -> Result<(), io::Error>{
     let mut image_url = icon::get_image(path).expect("Fail");
     
-    println!("{}", image_url);
-
     if &image_url[..3] == "../"{
         image_url = String::from(&image_url[3..]);
     }
@@ -87,19 +95,28 @@ fn update_image(path: &str, fs_path: &str) -> Result<(), String>{
     if slice == "http"{
         icon::download_media(&image_url, fs_path);
     } else {
-        println!("{}", slice);
         let mut full_path: String = String::from(path);
         full_path.push_str(&image_url);
-        println!("{}", full_path);
         icon::download_media(&full_path, fs_path);
     };
     
     Ok(())
 }
 
-fn refresh_image(label: &str){
+fn refresh_image(path: &str, label: &str) -> Result<(), io::Error>{
     // refresh the iage for an existing bookmark
-    println!("{}", label)
+
+    let f = try!(File::open(path));
+    let file = BufReader::new(&f);
+    for line in file.lines() {
+        let l = line.unwrap();
+        let b = Bookmark::new_from_line(l);
+        if b.label == label{
+            return update_image(&b.url, &image_path(&b.hash))
+        }
+    }
+    // TODO: This should be an error, not OK
+    Ok(())
 }
 
 fn main() {
@@ -112,6 +129,7 @@ fn main() {
              .value_name("FILE")
              .help("Location of bookmarks file")
              .takes_value(true))
+        .subcommand(SubCommand::with_name("list"))
         .subcommand(SubCommand::with_name("add")
                     .arg(Arg::with_name("url")
                          .short("u")
@@ -140,17 +158,30 @@ fn main() {
                          .takes_value(true)))
         .get_matches();
 
-    let file = matches.value_of("file").unwrap_or("test");
 
+    let file_env = match env::var("RBM_BASE"){
+        Ok(a) => a,
+        Err(_e) => panic!("Set RBM_BASE env")
+    };
+    
+    let default_file_path = format!("{}/bm.lnk", file_env);
+    
+    let file = matches.value_of("file").unwrap_or(&default_file_path);
+    
+    
     if let Some(matches) = matches.subcommand_matches("add") {
         let url = matches.value_of("url").unwrap();
         let title = matches.value_of("title").unwrap_or("Default");
         let taglist = matches.value_of("taglist").unwrap_or("default");
 
-        add_bookmark(file, url, title, taglist).unwrap()
+        add_bookmark(file, url, title, taglist).unwrap();
+        output_html(file).unwrap();
             
     }
     
+    if let Some(_) = matches.subcommand_matches("list") {
+        list_bookmarks(file).unwrap();
+    }
     if let Some(_) = matches.subcommand_matches("html") {
         output_html(file).unwrap();
     }
@@ -158,7 +189,7 @@ fn main() {
     
     if let Some(matches) = matches.subcommand_matches("image") {
         let label = matches.value_of("label").unwrap();
-        refresh_image(&label);
+        refresh_image(&file, &label).unwrap();
     }
     //list_bookmarks(file).unwrap();
 }
