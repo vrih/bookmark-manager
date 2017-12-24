@@ -1,0 +1,100 @@
+<!DOCTYPE html><html>
+  <head>
+    <meta charset=\"UTF-8\">
+    <title>bm v${VERSION} : all your bookmarks</title>
+    <style type='text/css'>
+     * {
+         -webkit-box-sizing: border-box;
+         -moz-box-sizing: border-box;
+         box-sizing: border-box;
+     }
+     body {
+         padding: 50px 0 5px 50px;
+         background: #1f1f1f url(${_BM_SCREENSHOT_DIRECTORY}/black-Linen.png);
+         font: 12px \"Helvetica Neue\", Helvetica, Arial, sans-serif;
+     }
+     .bm {
+         position: relative;
+         float: left;
+         margin: 15px;
+         padding: 1px;
+         opacity: 1;
+         border: 15px solid black;
+         border-radius: 5px;
+         -webkit-border-radius: 5px;
+         -moz-border-radius: 5px;
+         -webkit-transition: -webkit-box-shadow 600ms;
+         -moz-transition: -webkit-box-shadow 600ms;
+         -webkit-box-shadow: 0 0 1px 0 #555, 0 0 10px rgba(0,0,0,.5);
+         -moz-box-shadow: 0 0 1px 0 #555, 0 0 10px rgba(0,0,0,.5);
+         overflow: hidden;
+     }
+     .bm:hover {
+         -webkit-box-shadow: 0 0 40px #1ab0ff
+         , 0 0 3px #06bdff
+         , 0 1px 1px #4ee2ff
+         , 0 1px 0 #fff;
+         -moz-box-shadow: 0 0 40px #1ab0ff
+         , 0 0 3px #06bdff
+         , 0 1px 1px #4ee2ff
+         , 0 1px 0 #fff;
+     }
+     .bm:hover img {
+         opacity: 1;
+     }
+     .bm img {
+         min-width: 150px;
+         height: 150px;
+         opacity: .5;
+         border-radius: 5px;
+         -webkit-border-radius: 5px;
+         -moz-border-radius: 5px;
+         -webkit-transition: opacity 200ms;
+         -moz-transition: opacity 200ms;
+     }
+     .bm p {
+         margin: 0;
+         padding: 10px;
+         width: 100%;
+         background: rgba(0,0,0,.75);
+         position: absolute;
+         left: 0;
+         color: white;
+         letter-spacing: 1px;
+         bottom: -50px;
+         -webkit-font-smoothing: antialiased;
+         -webkit-transition: bottom 200ms ease-in;
+     }
+     .bm:hover p {
+         bottom: 0;
+     }
+    </style>
+    <script
+        src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+        integrity="sha256-k2WSCIexGzOj3Euiig+TlR8gA0EmPjuc79OEeY5L45g="
+        crossorigin="anonymous"></script>
+  </head>
+  <body>
+      <input id="search"></input>
+      
+      //REPLACE//
+      <script>
+       //col cache lection of elements so only one dom search needed
+       var $mediaElements = $('.bm');
+
+       $('#search').keypress(function (e) {
+           if (e.which == 13) {
+               e.preventDefault();
+               // get the category from the attribute
+               var filterVal = $('#search').val();
+
+               if(filterVal === 'all'){
+                   $mediaElements.show();
+               }else{
+                   // hide all then filter the ones to show
+                   $mediaElements.hide().filter('.' + filterVal).show();
+               }
+           };});
+      </script>
+  </body>
+</html>
