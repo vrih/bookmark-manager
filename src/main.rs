@@ -3,12 +3,8 @@ extern crate rbmlib;
 
 
 //icon
-extern crate futures;
-extern crate hyper;
-extern crate hyper_tls;
-extern crate tokio_core;
 extern crate select;
-
+extern crate reqwest;
 
 use clap::{App, Arg, SubCommand};
 use std::io;
@@ -75,15 +71,9 @@ fn output_html(path: &str) -> Result<(), io::Error>{
 }
 
 fn update_image(path: &str, fs_path: &str) -> Result<(), String>{
-    let image_url = icon::get_image(path);
-    let mut image_url:String = match image_url{
-        Some(u) => u,
-        None => return Err(String::from("No image url"))
-    };
+    let mut image_url = icon::get_image(path).expect("Fail");
     
     println!("{}", image_url);
-
-   // let dots = &image_url[..3];
 
     if &image_url[..3] == "../"{
         image_url = String::from(&image_url[3..]);

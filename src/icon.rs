@@ -4,12 +4,11 @@ use select::document::Document;
 use select::node::Node;
 use select::predicate::*;
 
+use std::io::Error;
 use std::io::{self, Write};
-use futures::{Future, Stream};
-use hyper::Client;
-use tokio_core::reactor::Core;
-use hyper_tls::HttpsConnector;
-use  hyper::header::Location;
+
+use reqwest::get;
+
 
 #[derive(Debug)]
 struct Icon{
@@ -61,129 +60,22 @@ fn get_image_paths(doc: &Document) -> Option<String>{
     // links.last().unwrap().href.clone()
 }
 
-pub fn get_image(url: &str) -> Option<String>{
-    let core = Core::new();
+pub fn get_image(url: &str) -> Result<String, Error>{
+    let mut resp = get(url).expect("Fail2");
+    let body = resp.text().expect("Body fail");
     
-    let mut core = match core {
-        Ok(c) => c,
-        Err(e) => panic!("Error setting up core")
-    };
-
-    let handle = core.handle();
-
-    let httpsconnector = HttpsConnector::new(4, &handle);
-    let httpsconnector = match httpsconnector {
-        Ok(h) => h,
-        Err(e) => panic!("Error setting up https connector: {:?}", e)
-    };
-
-    let client = Client::configure()
-        .connector(httpsconnector)
-        .build(&handle);
-
-    let uri = url.parse();
-
-    let uri = match uri {
-        Ok(u) => u,
-        Err(e) => panic!("Unable to parse URL")
-    };
-
-    let work = client.get(uri)
-        .map_err(|_err| ())
-        .and_then(|res| {
-            // check for 200
-            // if res.status().is_redirection() == true{
-            //     let h = res.headers();
-            //     let l = h.get::<Location>().unwrap();
-            //     let b = get_image(&l);
-            //     return Some(b)
-            // } else {
-            res.body()
-                .concat2()
-                .map_err(|_err| ())
-                .map(|chunk| {
-                    let v = chunk.to_vec();
-                    let s = String::from_utf8_lossy(&v).to_string();
-                    
-                    let document = Document::from(&s[..]);
-                    
-                    let url = get_image_paths(&document);
-                    let url = match url{
-                        Some(s) => Some(s),
-                        None => None
-                    };
-                    
-                    return Some(url)
-                }
-                )
-        }
-                  
-        
-        );
-    let c = core.run(work);
-    let c = match c {
-        Ok(d) => d,
-        Err(e) => None
-    };
-
-    let c = match c{
-        Some(d) => d,
-        None => None
-    };
-    c
+    let document = Document::from(&body[..]);
+    
+    let url = get_image_paths(&document);
+    return Ok(url.unwrap())
 }
 
 
 pub fn download_media(url: &str, fs_path: &str){
-    let core = Core::new();
-    println!("FN {}", url);
-    let mut core = match core {
-        Ok(c) => c,
-        Err(e) => panic!("Error setting up core")
-    };
-
-    let handle = core.handle();
-
-    let httpsconnector = HttpsConnector::new(4, &handle);
-    let httpsconnector = match httpsconnector {
-        Ok(h) => h,
-        Err(e) => panic!("Error setting up https connector: {:?}", e)
-    };
-    
-    let client = Client::configure()
-        .connector(httpsconnector)
-        .build(&handle);
-        
-    let uri = url.parse();
-
-    let uri = match uri {
-        Ok(u) => u,
-        Err(e) => panic!("Unable to parse URL")
-    };
-
-    let work = client.get(uri)
-        .map_err(|_err| ())
-        .and_then(|res| {
-            // check for 200
-            println!("Response: {}", res.status());
-
-            res.body()
-                .concat2()
-                .map_err(|_err| ())
-                .map(|chunk| {
-                    let v = chunk.to_vec();
-                    return v
-                })
-                
-        
-        });
-    let c = core.run(work);
-    let c = match c {
-        Ok(d) => d,
-        Err(e) => panic!("{:?}", e)
-    };
-
+    let mut resp = get(url).expect("Fail3");
+    let mut buf: Vec<u8> = vec![];
+    resp.copy_to(&mut buf).expect("Bad body");
     println!("{}", fs_path);
     let mut f = File::create(fs_path).unwrap();
-    f.write_all(&c);
+    f.write_all(buf.as_slice());
 }
