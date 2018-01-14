@@ -4,12 +4,14 @@ use select::document::Document;
 use select::node::Node;
 use select::predicate::*;
 
-use std::io::Error;
+use std::io;
 use std::io::Write;
 
 use reqwest::Client;
 use reqwest::get;
 use reqwest::header;
+
+use url::Url;
 
 #[derive(Debug)]
 struct Icon{
@@ -58,6 +60,7 @@ fn get_image_paths(doc: &Document) -> Option<String>{
         };
     };
 
+    
     let out = links.last();
     let out = match out{
         Some(links) => Some(links.href.clone()),
@@ -66,7 +69,23 @@ fn get_image_paths(doc: &Document) -> Option<String>{
     out 
 }
 
-pub fn get_image(url: &str) -> Result<String, Error>{
+fn url_from_paths(root: &str, path: &str) -> String{
+    let mut image_url = String::from(path);
+    if &image_url[..2] == "//"{
+        image_url.insert_str(0, "http:");
+        return image_url
+    }
+    
+    if image_url.len() >= 4 && &image_url[..4] == "http"{
+       return image_url
+    }              
+    
+    let root_url = Url::parse(&root).unwrap();
+    let parsed = root_url.join(&path).unwrap();
+    String::from(parsed.as_str())
+}
+
+pub fn download_image(url: &str, fs_path: &str) -> Result<(), io::Error>{
     let mut headers = header::Headers::new();
     headers.set(header::UserAgent::new("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.89 Safari/537.36".to_string()));
 
@@ -80,18 +99,33 @@ pub fn get_image(url: &str) -> Result<String, Error>{
     
     //let mut resp = get(url).expect("Fail2");
     let body = resp.text().expect("Body fail");
-    
+
     let document = Document::from(&body[..]);
     
-    let url = get_image_paths(&document);
-    return Ok(url.unwrap())
+    let image_url = get_image_paths(&document).unwrap();
+    let download_url = url_from_paths(url, &image_url);
+    download_media(&download_url, fs_path);
+    
+    return Ok(())
 }
 
 
 pub fn download_media(url: &str, fs_path: &str){
+    println!("{}", &url);
     let mut resp = get(url).expect("Fail3");
     let mut buf: Vec<u8> = vec![];
     resp.copy_to(&mut buf).expect("Bad body");
     let mut f = File::create(fs_path).unwrap();
     f.write_all(buf.as_slice()).unwrap();
+}
+
+
+#[test]
+fn url_from_paths_test(){
+    assert_eq!("https://www.example.com/123",
+    url_from_paths("https://www.example.com", "123"));
+    assert_eq!("http://www.example2.com/123",
+    url_from_paths("https://www.example.com", "http://www.example2.com/123"));
+    assert_eq!("http://www.example2.com/123",
+    url_from_paths("https://www.example.com", "//www.example2.com/123"));
 }

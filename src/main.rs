@@ -4,6 +4,7 @@ extern crate rbmlib;
 //icon
 extern crate select;
 extern crate reqwest;
+extern crate url;
 
 use clap::{App, Arg, SubCommand};
 use std::io;
@@ -81,26 +82,7 @@ fn output_html(path: &str) -> Result<(), io::Error>{
 }
 
 fn update_image(path: &str, fs_path: &str) -> Result<(), io::Error>{
-    let mut image_url = icon::get_image(path).expect("Fail");
-    
-    if &image_url[..3] == "../"{
-        image_url = String::from(&image_url[3..]);
-    }
-    
-    if &image_url[..2] == "//"{
-        image_url.insert_str(0, "http:");
-    }
-    
-    let slice = &image_url[..4];
-    if slice == "http"{
-        icon::download_media(&image_url, fs_path);
-    } else {
-        let mut full_path: String = String::from(path);
-        full_path.push_str(&image_url);
-        icon::download_media(&full_path, fs_path);
-    };
-    
-    Ok(())
+    icon::download_image(path, fs_path)
 }
 
 fn refresh_image(path: &str, label: &str) -> Result<(), io::Error>{

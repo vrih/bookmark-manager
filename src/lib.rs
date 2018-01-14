@@ -6,6 +6,7 @@ use crypto::digest::Digest;
 use std::fmt;
 use std::env;
 
+use std::path::Path;
 use std::string::String;
 
 use std::io::prelude::*;
@@ -65,10 +66,21 @@ impl fmt::Display for Bookmark {
     }
 }
 
+
+fn image_exists(hash: &str) -> bool{
+   let base_path = match env::var("RBM_BASE"){
+        Ok(a) => a,
+        Err(_e) => panic!("Set RBM_BASE env")
+    };
+
+    let path = format!("{}/.bm.shots/{}.png", base_path, hash);
+    Path::new(&path).exists()
+}
+
 pub fn html_output(bookmarks: Vec<Bookmark>) -> String {
     let image_path = match env::var("RBM_BASE"){
         Ok(a) => a,
-        Err(e) => panic!("Set RBM_BASE env")
+        Err(_e) => panic!("Set RBM_BASE env")
     };
     
     let mut file = File::open(format!("{}/.template.html", &image_path)).expect("Unable to open the file");
@@ -79,9 +91,14 @@ pub fn html_output(bookmarks: Vec<Bookmark>) -> String {
     // convert to map
     for bm in bookmarks {
         let tagstring = bm.tags.replace(",", " ");
-        let bs = format!("<div class=\"bm {}\"><a href='{}'><img src='.bm.shots/{}.png'></a><p>{}</p></div>",
-                         tagstring, bm.url, bm.hash, bm.title);
-        buffer.push_str(&bs);
+        if image_exists(&bm.hash){
+            let bs = format!("<div class=\"bm {}\"><a href='{}'><img src='.bm.shots/{}.png'></a><p>{}</p></div>",
+                             tagstring, bm.url, bm.hash, bm.title);
+            buffer.push_str(&bs)} else {
+            let bs = format!("<div class=\"bm noimage {}\"><a href='{}'><div class=\"letter\">{}</div><p>{}</p></div>",
+                             tagstring, bm.url, bm.title.chars().next().expect("No title"), bm.title);
+            buffer.push_str(&bs);  
+        };
     }
 
     let html = contents.replace("//REPLACE//", &buffer);
