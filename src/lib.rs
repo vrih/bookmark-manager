@@ -1,5 +1,6 @@
 extern crate crypto;
 extern crate time;
+extern crate colored;
 
 use crypto::md5::Md5;
 use crypto::digest::Digest;
@@ -11,6 +12,8 @@ use std::string::String;
 
 use std::io::prelude::*;
 use std::fs::File;
+
+use colored::*;
 
 #[derive(PartialEq, Debug)]
 pub struct Bookmark {
@@ -24,7 +27,6 @@ pub struct Bookmark {
 }
 
 const ISO_TIME_DATE: &str = "%Y-%m-%dT%H:%M:%SZ";
-
 
 impl Bookmark {
     pub fn new_from_line(line: String) -> Bookmark {
@@ -59,10 +61,14 @@ impl Bookmark {
 
 impl fmt::Display for Bookmark {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result{
-        write!(f, "{} --> {} [{}]\n{} - Added: {}\n",
-               self.label, self.title, self.tags, self.url,
-               time::strftime(ISO_TIME_DATE, &self.created_at).unwrap())
-
+        write!(f, "{} {} {} [{}]\n{} — {}{}\n",
+               self.label.bold().bright_black(),
+               "→".dimmed(),
+               self.title.white(),
+               self.tags.bold(),
+               self.url.underline().dimmed(),
+               "Added: ".bright_black(),
+               time::strftime(ISO_TIME_DATE, &self.created_at).unwrap().bright_black())
     }
 }
 
