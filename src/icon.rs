@@ -22,8 +22,14 @@ struct Icon{
 
 fn attr_parser(doc: &Document, attr: &str, val: &str) -> Vec<Icon>{
     let mut links: Vec<Icon> = Vec::new();
+
     
     for link in doc.find(Name("link").and(Attr(attr, val))).collect::<Vec<Node>>(){
+        
+        if !link.attr("href").unwrap().ends_with("png") {
+            continue
+        }
+        
         let sizes = link.attr("sizes");
         let sizes = match sizes{
             Some(s) => s,
