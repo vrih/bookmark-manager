@@ -74,6 +74,7 @@ fn output_html(path: &str) -> Result<(), io::Error>{
     
     let fo = OpenOptions::new()
         .write(true)
+        .truncate(true)
         .create(true)
         .open(directory_path)
         .unwrap();
