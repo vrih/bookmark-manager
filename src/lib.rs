@@ -21,7 +21,7 @@ pub struct Bookmark {
     created_at: time::Tm,
     pub label: String,
     pub url: String,
-    title: String,
+    pub title: String,
     tags: String,
     //image: &'a str,
 }

@@ -4,12 +4,13 @@ use select::document::Document;
 use select::node::Node;
 use select::predicate::*;
 
-use std::io;
 use std::io::Write;
 
 use reqwest::Client;
 use reqwest::get;
 use reqwest::header;
+
+use reqwest;
 
 use url::Url;
 
@@ -56,13 +57,8 @@ fn get_image_paths(doc: &Document) -> Option<String>{
     links.sort_by_key(|a| a.x);
 
     if links.len() == 0{
-        //println!("link len 0");
-        //  let nodes = doc.find(Name("meta")).collect::<Vec<Node>>();
-        //  println!("{:?}", nodes);
         for link in doc.find(Name("meta").and(Attr("property", "og:image"))).collect::<Vec<Node>>(){
-        //or link in nodes {
             links.push(Icon{x: 1, y: 1, href: String::from(link.attr("content").unwrap())});
-            
         };
     };
 
@@ -91,7 +87,7 @@ fn url_from_paths(root: &str, path: &str) -> String{
     String::from(parsed.as_str())
 }
 
-pub fn download_image(url: &str, fs_path: &str) -> Result<(), io::Error>{
+pub fn download_image(url: &str, fs_path: &str) -> Result<(), reqwest::Error>{
     let mut headers = header::Headers::new();
     headers.set(header::UserAgent::new("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.89 Safari/537.36".to_string()));
 
@@ -99,25 +95,25 @@ pub fn download_image(url: &str, fs_path: &str) -> Result<(), io::Error>{
     let client = Client::builder()
         .default_headers(headers)
         .build().expect("Bob");
-    let mut resp = client.get(url)
+    let mut resp = try!(client.get(url)
         .header(header::UserAgent::new("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.79 Safari/537.36".to_string()))
-        .send().expect("Fail2");
+        .send());
     
-    //let mut resp = get(url).expect("Fail2");
-    let body = resp.text().expect("Body fail");
+    let body = try!(resp.text());
 
     let document = Document::from(&body[..]);
-    
-    let image_url = get_image_paths(&document).unwrap();
-    let download_url = url_from_paths(url, &image_url);
-    download_media(&download_url, fs_path);
-    
+
+    match get_image_paths(&document) {
+        Some(image_url) => { 
+            let download_url = url_from_paths(url, &image_url);
+            download_media(&download_url, fs_path);}
+        _  => println!("No image for {}", url)          
+    };
     return Ok(())
 }
 
 
 pub fn download_media(url: &str, fs_path: &str){
-    println!("{}", &url);
     let mut resp = get(url).expect("Fail3");
     let mut buf: Vec<u8> = vec![];
     resp.copy_to(&mut buf).expect("Bad body");

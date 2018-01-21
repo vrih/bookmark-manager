@@ -17,6 +17,7 @@ use std::env;
 
 use rbmlib::Bookmark;
 
+
 mod icon;
 
 fn list_bookmarks(path: &str) -> Result<(), io::Error>{
@@ -30,7 +31,7 @@ fn list_bookmarks(path: &str) -> Result<(), io::Error>{
     Ok(())
 }
 
-fn add_bookmark(path: &str, url: &str, title: &str, tags: &str) -> Result<(), io::Error>{
+fn add_bookmark(path: &str, url: &str, title: &str, tags: &str) -> Result<(), reqwest::Error>{
     let f = OpenOptions::new()
         .append(true)
         .open(path)
@@ -81,8 +82,22 @@ fn output_html(path: &str) -> Result<(), io::Error>{
     write!(&fo, "{}", a)
 }
 
-fn update_image(path: &str, fs_path: &str) -> Result<(), io::Error>{
+fn update_image(path: &str, fs_path: &str) -> Result<(), reqwest::Error>{
     icon::download_image(path, fs_path)
+}
+
+fn refresh_all_images(path: &str) -> Result<(), io::Error>{
+    let f = try!(File::open(path));
+    let file = BufReader::new(&f);
+    for line in file.lines() {
+        let l = line.unwrap();
+        let b = Bookmark::new_from_line(l);
+        match update_image(&b.url, &image_path(&b.hash)){
+            Ok(_) => println!("Updated: {}", &b.title),
+            Err(_) => println!("Error updating {}", &b.title)
+        };
+    }
+    return Ok(())
 }
 
 fn refresh_image(path: &str, label: &str) -> Result<(), io::Error>{
@@ -94,7 +109,10 @@ fn refresh_image(path: &str, label: &str) -> Result<(), io::Error>{
         let l = line.unwrap();
         let b = Bookmark::new_from_line(l);
         if b.label == label{
-            return update_image(&b.url, &image_path(&b.hash))
+            match update_image(&b.url, &image_path(&b.hash)){
+                Ok(_) => return Ok(()),
+                Err(_) => println!("Unable to refresh image")
+            };
         }
     }
     // TODO: This should be an error, not OK
@@ -133,6 +151,10 @@ fn main() {
                          .takes_value(true)))
         .subcommand(SubCommand::with_name("html"))
         .subcommand(SubCommand::with_name("image")
+                    .arg(Arg::with_name("all")
+                         .short("a")
+                         .long("all")
+                         .takes_value(false))
                     .arg(Arg::with_name("label")
                          .short("l")
                          .long("label")
@@ -170,8 +192,12 @@ fn main() {
 
     
     if let Some(matches) = matches.subcommand_matches("image") {
-        let label = matches.value_of("label").unwrap();
-        refresh_image(&file, &label).unwrap();
+        if let Some(_) = matches.values_of("all"){
+            refresh_all_images(&file).unwrap();
+        } else {
+            let label = matches.value_of("label").unwrap();
+            refresh_image(&file, &label).unwrap();
+        }
     }
     //list_bookmarks(file).unwrap();
 }
