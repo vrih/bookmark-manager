@@ -98,10 +98,10 @@ pub fn html_output(bookmarks: Vec<Bookmark>) -> String {
     for bm in bookmarks {
         let tagstring = bm.tags.replace(",", " ");
         if image_exists(&bm.hash){
-            let bs = format!("<div class=\"bm {}\"><a href='{}'><img src='.bm.shots/{}.png'></a><p>{}</p></div>",
+            let bs = format!("<div class=\"bm {}\"><a href='{}'><img src='.bm.shots/{}.png'><p>{}</p></a></div>",
                              tagstring, bm.url, bm.hash, bm.title);
             buffer.push_str(&bs)} else {
-            let bs = format!("<div class=\"bm noimage {}\"><a href='{}'><div class=\"letter\">{}</div><p>{}</p></div>",
+            let bs = format!("<div class=\"bm noimage {}\"><a href='{}'><div class=\"letter\">{}</div><p>{}</p></a></div>",
                              tagstring, bm.url, bm.title.chars().next().expect("No title"), bm.title);
             buffer.push_str(&bs);  
         };
