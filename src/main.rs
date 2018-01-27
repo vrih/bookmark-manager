@@ -70,8 +70,10 @@ fn output_html(path: &str) -> Result<(), io::Error>{
     let file = BufReader::new(&f);
     for line in file.lines(){
         let l = line.unwrap();
-        let b = Bookmark::new_from_line(l).unwrap();
-        bs.push(b);
+        match Bookmark::new_from_line(l){
+            Ok(b) => bs.push(b),
+            Err(_) => continue
+        };
     }
     
     let fo = OpenOptions::new()
