@@ -25,8 +25,10 @@ fn list_bookmarks(path: &str) -> Result<(), io::Error>{
     let file = BufReader::new(&f);
     for line in file.lines() {
         let l = line.unwrap();
-        let b = Bookmark::new_from_line(l);
-        println!("{}", b);
+        match Bookmark::new_from_line(l){
+            Ok(b) => println!("{}", b),
+            Err(_) => continue
+        }
     }
     Ok(())
 }
@@ -68,7 +70,7 @@ fn output_html(path: &str) -> Result<(), io::Error>{
     let file = BufReader::new(&f);
     for line in file.lines(){
         let l = line.unwrap();
-        let b = Bookmark::new_from_line(l);
+        let b = Bookmark::new_from_line(l).unwrap();
         bs.push(b);
     }
     
@@ -92,7 +94,11 @@ fn refresh_all_images(path: &str) -> Result<(), io::Error>{
     let file = BufReader::new(&f);
     for line in file.lines() {
         let l = line.unwrap();
-        let b = Bookmark::new_from_line(l);
+        let b = match Bookmark::new_from_line(l){
+            Ok(b) => b,
+            Err(_) => continue
+        };
+
         match update_image(&b.url, &image_path(&b.hash)){
             Ok(_) => println!("Updated: {}", &b.title),
             Err(_) => println!("Error updating {}", &b.title)
@@ -108,7 +114,10 @@ fn refresh_image(path: &str, label: &str) -> Result<(), io::Error>{
     let file = BufReader::new(&f);
     for line in file.lines() {
         let l = line.unwrap();
-        let b = Bookmark::new_from_line(l);
+        let b = match Bookmark::new_from_line(l){
+            Ok(b) => b,
+            Err(_) => continue
+        };
         if b.label == label{
             match update_image(&b.url, &image_path(&b.hash)){
                 Ok(_) => return Ok(()),

@@ -29,15 +29,20 @@ pub struct Bookmark {
 const ISO_TIME_DATE: &str = "%Y-%m-%dT%H:%M:%SZ";
 
 impl Bookmark {
-    pub fn new_from_line(line: String) -> Bookmark {
+    pub fn new_from_line(line: String) -> Result<Bookmark, String> {
         let fields: Vec<&str> = line.split("|").collect();
+
+        if fields.len() < 5{
+            return Err(String::from("Not enough fields in line"))
+        }
+        
         let hash = String::from(fields[0]);
         let created_at = time::strptime(fields[1], ISO_TIME_DATE).unwrap();
         let label = String::from(fields[2]);
         let url = String::from(fields[3]);
         let title = String::from(fields[4]);
         let tags = String::from(fields[5]);
-        Bookmark{hash, created_at, label, url, title, tags}
+        Ok(Bookmark{hash, created_at, label, url, title, tags})
     }
 
     pub fn new_from_input(url: String, title: String, tags: String) -> Bookmark {
@@ -121,8 +126,16 @@ fn line_to_file_test() {
         label: String::from(":5"),
         url: String::from("https://www.example.com/"),
         title: String::from("Example"),
-        tags: String::from("tag1,tag2")}, Bookmark::new_from_line(line))
+        tags: String::from("tag1,tag2")}, Bookmark::new_from_line(line).unwrap())
 }
+
+#[test]
+fn blank_line_to_file_test() {
+    let line = String::from("");
+    
+    assert!(Bookmark::new_from_line(line).is_err())
+}
+
 
 // Disabled until I can work out how to mock time
 // #[test]
