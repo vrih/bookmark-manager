@@ -16,8 +16,8 @@ use url::Url;
 
 #[derive(Debug)]
 struct Icon{
-    x: u8,
-    y: u8,
+    x: u16,
+    y: u16,
     href: String
 }
 
@@ -37,10 +37,10 @@ fn attr_parser(doc: &Document, attr: &str, val: &str) -> Vec<Icon>{
             // if it hasn't got a size let's treat it as the smallest
             None => "1x1"
         };
-        
+
         let x_y = sizes.split("x").collect::<Vec<&str>>();
-        let x = x_y[0].parse::<u8>().unwrap();
-        let y = x_y[0].parse::<u8>().unwrap();
+        let x = x_y[0].parse::<u16>().unwrap();
+        let y = x_y[0].parse::<u16>().unwrap();
 
         links.push(Icon{x, y, href: String::from(link.attr("href").unwrap())});
     };
