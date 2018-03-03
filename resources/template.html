@@ -1,6 +1,6 @@
 <!DOCTYPE html><html>
   <head>
-    <meta charset=\"UTF-8\">
+    <meta charset="UTF-8">
     <title>New tab</title>
     <style type='text/css'>
      * {
@@ -13,6 +13,13 @@
          background: #1f1f1f url(.bm.shots/black-Linen.png);
          font: 12px \"Helvetica Neue\", Helvetica, Arial, sans-serif;
      }
+
+     .layout{
+         display: flex;
+         flex-flow: row wrap;
+         justify-content: space-between;
+     }
+     
      .bm {
          position: relative;
          float: left;
@@ -105,33 +112,12 @@
      }
      
     </style>
-    <script
-        src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
-        integrity="sha256-k2WSCIexGzOj3Euiig+TlR8gA0EmPjuc79OEeY5L45g="
-        crossorigin="anonymous"></script>
   </head>
   <body>
       <input id="search" autofocus></input>
       <div class="layout">
         //REPLACE//
       </div>
-      <script>
-       //col cache lection of elements so only one dom search needed
-       var $mediaElements = $('.bm');
-
-       $('#search').keypress(function (e) {
-           if (e.which == 13) {
-               e.preventDefault();
- 
-               var filterVal = $('#search').val();
-
-               if(filterVal === 'all'){
-                   $mediaElements.show();
-               }else{
-                   // hide all then filter the ones to show
-                   $mediaElements.hide().filter('.' + filterVal).show();
-               }
-           };});
-      </script>
+    <script src="js/bookmark_html.js"></script>
   </body>
 </html>
