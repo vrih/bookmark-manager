@@ -250,18 +250,18 @@ pub fn download_image(url: &str, fs_path: &str) -> Result<(), reqwest::Error>{
 
     match icon_url {
         Some(image_url) => download_media(&image_url, fs_path),
-        _  => println!("No image for {}", url)
-    };
-    Ok(())
+        _  => Ok(println!("No image for {}", url))
+    }
 }
 
 
-pub fn download_media(url: &str, fs_path: &str){
-    let mut resp = get(url).expect("Fail3");
+pub fn download_media(url: &str, fs_path: &str) -> Result<(), reqwest::Error>{
+    let mut resp = get(url)?;
     let mut buf: Vec<u8> = vec![];
     resp.copy_to(&mut buf).expect("Bad body");
     let mut f = File::create(fs_path).unwrap();
     f.write_all(buf.as_slice()).unwrap();
+    Ok(())
 }
 
 
