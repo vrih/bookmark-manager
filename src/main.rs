@@ -89,15 +89,7 @@ fn update_image(path: &str, fs_path: &str) -> Result<(), reqwest::Error>{
 }
 
 fn refresh_all_images(path: &str) -> Result<(), io::Error>{
-    let f = try!(File::open(path));
-    let file = BufReader::new(&f);
-    for line in file.lines() {
-        let b = match Bookmark::new_from_line(line?){
-            Ok(b) => b,
-            Err(_) => continue
-        };
-
-    let r = {
+     let r = {
         let (s, r) = chan::sync(0);
 
         let f = try!(File::open(path));
@@ -115,7 +107,7 @@ fn refresh_all_images(path: &str) -> Result<(), io::Error>{
                       });
         r
     };
-        
+
     let wg = chan::WaitGroup::new();
     for _ in 0..NTHREADS {
         // The `recv` method picks a message from the channel
@@ -135,7 +127,7 @@ fn refresh_all_images(path: &str) -> Result<(), io::Error>{
 
     }
     wg.wait();
-    Ok(())
+        Ok(())
 }
 
 fn refresh_image(path: &str, label: &str) -> Result<(), io::Error>{
