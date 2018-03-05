@@ -5,6 +5,7 @@ extern crate rbmlib;
 extern crate select;
 extern crate reqwest;
 extern crate url;
+extern crate chan;
 
 use clap::{App, Arg, SubCommand};
 use std::io;
@@ -17,6 +18,9 @@ use std::env;
 
 use rbmlib::Bookmark;
 
+use std::thread;
+
+static NTHREADS: i32 = 10;
 
 mod icon;
 
@@ -92,20 +96,45 @@ fn update_image(path: &str, fs_path: &str) -> Result<(), reqwest::Error>{
 }
 
 fn refresh_all_images(path: &str) -> Result<(), io::Error>{
-    let f = try!(File::open(path));
-    let file = BufReader::new(&f);
-    for line in file.lines() {
-        let l = line.unwrap();
-        let b = match Bookmark::new_from_line(l){
-            Ok(b) => b,
-            Err(_) => continue
-        };
 
-        match update_image(&b.url, &image_path(&b.hash)){
-            Ok(_) => println!("Updated: {}", &b.title),
-            Err(_) => println!("Error updating {}", &b.title)
-        };
+    let r = {
+        let (s, r) = chan::sync(0);
+
+        let f = try!(File::open(path));
+        thread::spawn(move || 
+                      {
+                          let file = BufReader::new(&f);
+                          for line in file.lines() {
+                              let l = line.unwrap();
+                              let b = match Bookmark::new_from_line(l){
+                                  Ok(b) => b,
+                                  Err(_) => continue
+                              };
+                              s.send(b);
+                          }
+                      });
+        r
+    };
+        
+    let wg = chan::WaitGroup::new();
+    for _ in 0..NTHREADS {
+        // The `recv` method picks a message from the channel
+        // `recv` will block the current thread if there are no messages available
+        wg.add(1);
+        let wg = wg.clone();
+        let r = r.clone();
+        thread::spawn(move || {
+            for bm in r{
+                match update_image(&bm.url, &image_path(&bm.hash)){
+                    Ok(_) => println!("Updated: {}", &bm.title),
+                    Err(_) => println!("Error updating {}", &bm.title)
+                };   
+            }
+            wg.done();
+        });
+
     }
+    wg.wait();
     return Ok(())
 }
 
@@ -211,5 +240,4 @@ fn main() {
             refresh_image(&file, &label).unwrap();
         }
     }
-    //list_bookmarks(file).unwrap();
 }
