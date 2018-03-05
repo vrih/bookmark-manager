@@ -6,6 +6,7 @@ extern crate select;
 extern crate reqwest;
 extern crate url;
 extern crate chan;
+extern crate serde_json;
 
 use clap::{App, Arg, SubCommand};
 use std::io;
@@ -28,8 +29,7 @@ fn list_bookmarks(path: &str) -> Result<(), io::Error>{
     let f = try!(File::open(path));
     let file = BufReader::new(&f);
     for line in file.lines() {
-        let l = line.unwrap();
-        match Bookmark::new_from_line(l){
+        match Bookmark::new_from_line(line?){
             Ok(b) => println!("{}", b),
             Err(_) => continue
         }
@@ -52,10 +52,7 @@ fn add_bookmark(path: &str, url: &str, title: &str, tags: &str) -> Result<(), re
 }
 
 fn image_path(hash: &str) -> String{
-    let image_path = match env::var("RBM_BASE"){
-        Ok(a) => a,
-        Err(_e) => panic!("Set RBM_BASE env")
-    };
+    let image_path = env::var("RBM_BASE").expect("Set RBM_BASE env");
 
     format!("{}/.bm.shots/{}.png", &image_path, hash)
 }
@@ -63,18 +60,14 @@ fn image_path(hash: &str) -> String{
 fn output_html(path: &str) -> Result<(), io::Error>{
     let mut bs: Vec<Bookmark> = Vec::new();
     
-    let directory_path = match env::var("RBM_BASE"){
-        Ok(a) => a,
-        Err(_e) => panic!("Set RBM_BASE env")
-    };
+    let directory_path = env::var("RBM_BASE").expect("Set RBM_BASE env");
 
     let directory_path = format!("{}/bm.html", directory_path);
 
     let f = try!(File::open(path));
     let file = BufReader::new(&f);
     for line in file.lines(){
-        let l = line.unwrap();
-        match Bookmark::new_from_line(l){
+        match Bookmark::new_from_line(line?){
             Ok(b) => bs.push(b),
             Err(_) => continue
         };
@@ -96,6 +89,13 @@ fn update_image(path: &str, fs_path: &str) -> Result<(), reqwest::Error>{
 }
 
 fn refresh_all_images(path: &str) -> Result<(), io::Error>{
+    let f = try!(File::open(path));
+    let file = BufReader::new(&f);
+    for line in file.lines() {
+        let b = match Bookmark::new_from_line(line?){
+            Ok(b) => b,
+            Err(_) => continue
+        };
 
     let r = {
         let (s, r) = chan::sync(0);
@@ -135,7 +135,7 @@ fn refresh_all_images(path: &str) -> Result<(), io::Error>{
 
     }
     wg.wait();
-    return Ok(())
+    Ok(())
 }
 
 fn refresh_image(path: &str, label: &str) -> Result<(), io::Error>{
@@ -144,8 +144,7 @@ fn refresh_image(path: &str, label: &str) -> Result<(), io::Error>{
     let f = try!(File::open(path));
     let file = BufReader::new(&f);
     for line in file.lines() {
-        let l = line.unwrap();
-        let b = match Bookmark::new_from_line(l){
+        let b = match Bookmark::new_from_line(line?){
             Ok(b) => b,
             Err(_) => continue
         };
@@ -204,10 +203,7 @@ fn main() {
         .get_matches();
 
 
-    let file_env = match env::var("RBM_BASE"){
-        Ok(a) => a,
-        Err(_e) => panic!("Set RBM_BASE env")
-    };
+    let file_env = env::var("RBM_BASE").expect("Set RBM_BASE env");
     
     let default_file_path = format!("{}/bm.lnk", file_env);
     
@@ -224,20 +220,21 @@ fn main() {
             
     }
     
-    if let Some(_) = matches.subcommand_matches("list") {
+    if matches.subcommand_matches("list").is_some() {
         list_bookmarks(file).unwrap();
     }
-    if let Some(_) = matches.subcommand_matches("html") {
+    if matches.subcommand_matches("html").is_some() {
         output_html(file).unwrap();
     }
 
     
     if let Some(matches) = matches.subcommand_matches("image") {
-        if let Some(_) = matches.values_of("all"){
-            refresh_all_images(&file).unwrap();
-        } else {
-            let label = matches.value_of("label").unwrap();
-            refresh_image(&file, &label).unwrap();
+        match matches.values_of("all"){
+            Some(_) => refresh_all_images(file).unwrap(),
+            _ => {
+                let label = matches.value_of("label").unwrap();
+                refresh_image(file, label).unwrap();
+            }
         }
     }
 }
