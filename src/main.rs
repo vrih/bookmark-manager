@@ -119,7 +119,10 @@ fn refresh_all_images(path: &str) -> Result<(), io::Error>{
             for bm in r{
                 match update_image(&bm.url, &image_path(&bm.hash)){
                     Ok(_) => println!("Updated: {}", &bm.title),
-                    Err(_) => println!("Error updating {}", &bm.title)
+                    Err(e) => {
+                        println!("{:?}", e);
+                        println!("Error updating {}", &bm.title)
+                    }
                 };   
             }
             wg.done();

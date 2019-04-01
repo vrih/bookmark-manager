@@ -30,6 +30,9 @@ const MOBILE_UA: &str = "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) 
 
 fn split_x_y(sizes: &str) -> (u16, u16){
     let x_y = sizes.split('x').collect::<Vec<&str>>();
+    if x_y.len() != 2 {
+        return (1, 1)
+    }
     let x = x_y[0].parse::<u16>().unwrap();
     let y = x_y[1].parse::<u16>().unwrap();
     (x, y)
@@ -38,16 +41,20 @@ fn split_x_y(sizes: &str) -> (u16, u16){
 #[test]
 fn split_x_y_test(){
     assert_eq!((1, 2), split_x_y("1x2"));
+    assert_eq!((1, 1), split_x_y("any"));
 }
 
 
-fn attr_parser(doc: &Document, attr: &str, val: &str, url: &str) -> Vec<Icon>{
+fn attr_parser(doc: &Document, _attr: &str, _val: &str, url: &str) -> Vec<Icon>{
     let mut links: Vec<Icon> = Vec::new();
 
-    
-    for link in doc.find(Name("link").and(Attr(attr, val))).collect::<Vec<Node>>(){
+    for link in doc.find(Name("link")).collect::<Vec<Node>>(){
+        let href = match link.attr("href"){
+            Some(s) => s,
+            None => continue
+        };
         
-        if !link.attr("href").unwrap().ends_with("png") {
+        if !href.ends_with("png") {
             continue
         }
         
@@ -58,14 +65,30 @@ fn attr_parser(doc: &Document, attr: &str, val: &str, url: &str) -> Vec<Icon>{
         };
 
         let (x, y) = split_x_y(sizes);
-
-        links.push(Icon{x, y, href: url_from_paths(url, link.attr("href").unwrap()), poor: false});
+        let path = link.attr("href").unwrap();
+        if path.is_empty() {
+            continue
+        }
+        links.push(Icon{x, y, href: url_from_paths(url, path), poor: false});
     };
     links
 }
 
+#[test]
+fn attr_parser_test(){
+    let doc1 = Document::from("<html><head><link rel=\"icon\" sizes=\"192x192\" href=\"/1.png\"/></head></html>");
+    assert_eq!(vec![Icon{x: 192, y: 192, href: "http://example.com/1.png".to_string(), poor: false}], attr_parser(&doc1, "", "", "http://example.com"));
 
-fn icons_from_manifest(data: &str) -> Option<Vec<Icon>>{
+    let doc2 = Document::from("<html><head><link rel=\"icon\" sizes=\"192x192\" href=\"/1.svg\"/></head></html>");
+    let a: Vec<Icon> = Vec::new();
+    
+    assert_eq!(a, attr_parser(&doc2, "", "", "http://example.com"));
+
+    
+        
+}
+
+fn icons_from_manifest(url: &str, data: &str) -> Option<Vec<Icon>>{
     let mut icons: Vec<Icon> = Vec::new();
     match serde_json::from_str(data) {
         Ok(a) => {
@@ -74,9 +97,20 @@ fn icons_from_manifest(data: &str) -> Option<Vec<Icon>>{
                 for link in x.iter() {
                     let sizes = link["sizes"].as_str().unwrap();
                     let (x, y) = split_x_y(sizes);
+
+                    let mut src = String::from(link["src"].as_str().unwrap());
+                    if !src.starts_with("http") {
+                        let mut divider = "";
+                        if !url.ends_with("/") && !&src.starts_with("/") {
+                            divider = "/";
+                        }
+                            
+                        src = url.to_owned() + &divider +  &src;
+                            
+                    }
                     
                     icons.push(Icon{x, y,
-                                    href: String::from(link["src"].as_str().unwrap()),
+                                    href: src,
                                     poor:false});
 
                 };
@@ -96,7 +130,7 @@ fn icons_from_manifest_test(){
     assert_eq!(vec![
         Icon{x: 114, y: 114, href: String::from("https://assets-cdn.github.com/apple-touch-icon-114x114.png"), poor: false},
         Icon{x: 120, y: 120, href: String::from("https://assets-cdn.github.com/apple-touch-icon-120x120.png"), poor: false}],
-               icons_from_manifest("{\"name\":\"GitHub\",\"icons\":[{\"sizes\":\"114x114\",\"src\":\"https://assets-cdn.github.com/apple-touch-icon-114x114.png\"},{\"sizes\":\"120x120\",\"src\":\"https://assets-cdn.github.com/apple-touch-icon-120x120.png\"}]}").unwrap())}
+               icons_from_manifest("http://www.example.com", "{\"name\":\"GitHub\",\"icons\":[{\"sizes\":\"114x114\",\"src\":\"https://assets-cdn.github.com/apple-touch-icon-114x114.png\"},{\"sizes\":\"120x120\",\"src\":\"https://assets-cdn.github.com/apple-touch-icon-120x120.png\"}]}").unwrap())}
  
 
 fn get_image_paths(doc: &Document, url: &str) -> Option<Vec<Icon>>{
@@ -107,16 +141,20 @@ fn get_image_paths(doc: &Document, url: &str) -> Option<Vec<Icon>>{
     links.extend(attr_parser(doc, "rel", "apple-touch-icon", url));
     links.extend(attr_parser(doc, "rel", "apple-touch-icon image_src", url));
     links.sort_by_key(|a| a.x);
-
+    
     if links.is_empty() {
         for link in doc.find(Name("meta").and(Attr("property", "og:image"))).collect::<Vec<Node>>(){
+            let path = link.attr("content").unwrap();
+            if path.is_empty() {
+                continue
+            }
             links.push(Icon{x: 1,
                             y: 1,
                             href: url_from_paths(url, link.attr("content").unwrap()),
                             poor: true});
         };
     };
-
+    
     if links.is_empty() {
         None
     } else {
@@ -141,15 +179,14 @@ fn url_from_paths(root: &str, path: &str) -> String{
 }
 
 fn document_for_ua(url: &str, ua: &str) -> Result<(String, Document), reqwest::Error>{
-    let mut headers = header::Headers::new();
-    headers.set(header::UserAgent::new(ua.to_string()));
+    let mut headers = header::HeaderMap::new();
+    headers.insert(header::USER_AGENT, header::HeaderValue::from_str(&ua.to_string()).unwrap());
 
     // get a client builder
     let client = Client::builder()
         .default_headers(headers)
         .build().expect("Bob");
     let mut resp = try!(client.get(url)
-        .header(header::UserAgent::new(ua.to_string()))
         .send());
 
     let urlout = String::from(resp.url().as_str());
@@ -160,8 +197,8 @@ fn document_for_ua(url: &str, ua: &str) -> Result<(String, Document), reqwest::E
 
 // TODO: Change to Option
 fn get_manifest_json(url: &str, ua: &str) -> Result<String, reqwest::Error>{
-    let mut headers = header::Headers::new();
-    headers.set(header::UserAgent::new(ua.to_string()));
+    let mut headers = header::HeaderMap::new();
+    headers.insert(header::USER_AGENT, header::HeaderValue::from_str(&ua.to_string()).unwrap());
 
     let mut root_url = Url::parse(url).unwrap();
     root_url.set_path(""); 
@@ -171,7 +208,6 @@ fn get_manifest_json(url: &str, ua: &str) -> Result<String, reqwest::Error>{
         .default_headers(headers)
         .build().expect("Bob");
     let mut resp = try!(client.get(parsed)
-        .header(header::UserAgent::new(ua.to_string()))
         .send());
     
     let body = try!(resp.text());
@@ -197,6 +233,7 @@ fn get_mobile_icons(url: &str, icons: Option<&[Icon]>) -> Option<Icon>{
    
 
 fn good_quality_or_mobile(icons: &[Icon], url: &str) -> Option<Icon>{
+    println!("{:?}", icons);
     let out = icons.last().unwrap().clone();
     if out.x > 128{
         Some(out.clone())
@@ -220,7 +257,7 @@ fn get_icon_objects(url: &str) -> Result<Option<Icon>, reqwest::Error>{
 
     let icon = match manifest_test {
         Ok(data) => {
-            match icons_from_manifest(&data) {
+            match icons_from_manifest(&url, &data) {
                 Some(mut icon) => {
                     icon.sort_by_key(|a| a.x);
                     Some(icon.last().unwrap().clone())
@@ -239,7 +276,6 @@ fn get_icon_objects(url: &str) -> Result<Option<Icon>, reqwest::Error>{
 
 
 pub fn download_image(url: &str, fs_path: &str) -> Result<(), reqwest::Error>{
-
     let icon_url = match get_icon_objects(url){
         Ok(links) => {
             match links {
@@ -249,7 +285,9 @@ pub fn download_image(url: &str, fs_path: &str) -> Result<(), reqwest::Error>{
         _ => None};
 
     match icon_url {
-        Some(image_url) => download_media(&image_url, fs_path),
+        Some(image_url) => {
+            download_media(&image_url, fs_path)
+        },
         _  => Ok(println!("No image for {}", url))
     }
 }
