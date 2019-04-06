@@ -37,13 +37,13 @@ fn list_bookmarks(path: &str) -> Result<(), io::Error>{
     Ok(())
 }
 
-fn add_bookmark(path: &str, url: &str, title: &str, tags: &str) -> Result<(), reqwest::Error>{
+fn add_bookmark(path: &str, url: &str, title: &str, tags: &str, custom_image: &str) -> Result<(), reqwest::Error>{
     let f = OpenOptions::new()
         .append(true)
         .open(path)
         .unwrap();
 
-    let b = Bookmark::new_from_input(String::from(url), String::from(title), String::from(tags));
+    let b = Bookmark::new_from_input(String::from(url), String::from(title), String::from(tags), String::from(custom_image));
     let c = b.output();
     writeln!(&f, "{}", c).unwrap();
     let fs_path = image_path(&b.hash);
@@ -89,7 +89,7 @@ fn update_image(path: &str, fs_path: &str) -> Result<(), reqwest::Error>{
 }
 
 fn refresh_all_images(path: &str) -> Result<(), io::Error>{
-     let r = {
+    let r = {
         let (s, r) = chan::sync(0);
 
         let f = try!(File::open(path));
@@ -183,6 +183,12 @@ fn main() {
                          .long("taglist")
                          .value_name("TAGLIST")
                          .help("tags to add")
+                         .takes_value(true))
+                    .arg(Arg::with_name("custom_image")
+                         .short("c")
+                         .long("custom_image")
+                         .value_name("CUSTOM_IMAGE")
+                         .help("custom_image")
                          .takes_value(true)))
         .subcommand(SubCommand::with_name("html"))
         .subcommand(SubCommand::with_name("image")
@@ -203,14 +209,14 @@ fn main() {
     let default_file_path = format!("{}/bm.lnk", file_env);
     
     let file = matches.value_of("file").unwrap_or(&default_file_path);
-    
-    
+        
     if let Some(matches) = matches.subcommand_matches("add") {
         let url = matches.value_of("url").unwrap();
         let title = matches.value_of("title").unwrap_or("Default");
         let taglist = matches.value_of("taglist").unwrap_or("default");
+        let custom_image = matches.value_of("custom_image").unwrap_or("");
 
-        add_bookmark(file, url, title, taglist).unwrap();
+        add_bookmark(file, url, title, taglist, custom_image).unwrap();
         output_html(file).unwrap();
             
     }

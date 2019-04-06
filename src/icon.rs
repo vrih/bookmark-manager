@@ -233,7 +233,6 @@ fn get_mobile_icons(url: &str, icons: Option<&[Icon]>) -> Option<Icon>{
    
 
 fn good_quality_or_mobile(icons: &[Icon], url: &str) -> Option<Icon>{
-    println!("{:?}", icons);
     let out = icons.last().unwrap().clone();
     if out.x > 128{
         Some(out.clone())

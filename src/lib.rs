@@ -23,6 +23,7 @@ pub struct Bookmark {
     pub url: String,
     pub title: String,
     tags: String,
+    custom_image: String,
     //image: &'a str,
 }
 
@@ -42,10 +43,11 @@ impl Bookmark {
         let url = String::from(fields[3]);
         let title = String::from(fields[4]);
         let tags = String::from(fields[5]);
-        Ok(Bookmark{hash, created_at, label, url, title, tags})
+        let custom_image = String::from(fields[6]);
+        Ok(Bookmark{hash, created_at, label, url, title, tags, custom_image})
     }
 
-    pub fn new_from_input(url: String, title: String, tags: String) -> Bookmark {
+    pub fn new_from_input(url: String, title: String, tags: String, custom_image: String) -> Bookmark {
         let mut hasher = Md5::new();
         hasher.input_str(url.as_str());
         let hash = hasher.result_str();
@@ -54,7 +56,8 @@ impl Bookmark {
         // how to create label
         let label = hash[..5].to_string();
         let tags = tags;
-        Bookmark{hash, created_at, label, url, title, tags}
+        let custom_image = custom_image;
+        Bookmark{hash, created_at, label, url, title, tags, custom_image}
     }
 
     pub fn output(&self) -> String {
@@ -77,15 +80,26 @@ impl fmt::Display for Bookmark {
     }
 }
 
-
-fn image_exists(hash: &str) -> bool{
-   let base_path = match env::var("RBM_BASE"){
+fn image_exists(filename: &str) -> Option<String>{
+    let base_path = match env::var("RBM_BASE"){
         Ok(a) => a,
         Err(_e) => panic!("Set RBM_BASE env")
     };
 
-    let path = format!("{}/.bm.shots/{}.png", base_path, hash);
-    Path::new(&path).exists()
+    if filename.len() == 0 {
+        return None
+    };
+    
+    let file_endings = ["", ".svg", ".png"];
+    
+    for element in file_endings.iter() {
+        let tail = format!("{}{}", filename, element);
+        let path = format!("{}/.bm.shots/{}", base_path ,tail);
+        if Path::new(&path).exists() {
+            return Some(tail);
+        }
+    }
+    return None;
 }
 
 pub fn html_output(bookmarks: Vec<Bookmark>) -> String {
@@ -102,14 +116,13 @@ pub fn html_output(bookmarks: Vec<Bookmark>) -> String {
     // convert to map
     for bm in bookmarks {
         let tagstring = bm.tags.replace(",", " ");
-        if image_exists(&bm.hash){
-            let bs = format!("<div class=\"bm {}\"><a href='{}'><img src='.bm.shots/{}.png'><p>{}</p></a></div>",
-                             tagstring, bm.url, bm.hash, bm.title);
-            buffer.push_str(&bs)} else {
-            let bs = format!("<div class=\"bm noimage {}\"><a href='{}'><div class=\"letter\">{}</div><p>{}</p></a></div>",
-                             tagstring, bm.url, bm.title.chars().next().expect("No title"), bm.title);
-            buffer.push_str(&bs);  
-        };
+        let image_path = image_exists(&bm.custom_image).or(image_exists(&bm.hash));
+        let icon_tag = match image_path{
+            Some(path) =>  format!("<div class=\"bm {}\"><a href='{}'><img src='.bm.shots/{}'><p>{}</p></a></div>",
+                                  tagstring, bm.url, path, bm.title),
+            None => format!("<div class=\"bm noimage {}\"><a href='{}'><div class=\"letter\">{}</div><p>{}</p></a></div>",
+                           tagstring, bm.url, bm.title.chars().next().expect("No title"), bm.title)};
+        buffer.push_str(&icon_tag);
     }
 
     let html = contents.replace("//REPLACE//", &buffer);
