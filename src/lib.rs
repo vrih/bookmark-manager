@@ -23,7 +23,7 @@ pub struct Bookmark {
     pub url: String,
     pub title: String,
     tags: String,
-    custom_image: String,
+    pub custom_image: String,
     //image: &'a str,
 }
 
@@ -61,9 +61,15 @@ impl Bookmark {
     }
 
     pub fn output(&self) -> String {
-        let s = format!("{}|{}|:{}|{}|{}|{}", self.hash, time::strftime(ISO_TIME_DATE, &self.created_at).unwrap(),
-                        self.label, self.url, self.title, self.tags);
-        return s
+        return [
+            self.hash.to_owned(),
+            time::strftime(ISO_TIME_DATE, &self.created_at).unwrap(),
+            format!(":{}", &self.label),
+            self.url.to_owned(),
+            self.title.to_owned(),
+            self.tags.to_owned(),
+            self.custom_image.to_owned(),
+        ].join("|");
     }
 }
 
@@ -81,12 +87,9 @@ impl fmt::Display for Bookmark {
 }
 
 fn image_exists(filename: &str) -> Option<String>{
-    let base_path = match env::var("RBM_BASE"){
-        Ok(a) => a,
-        Err(_e) => panic!("Set RBM_BASE env")
-    };
+    let base_path = env::var("RBM_BASE").unwrap();
 
-    if filename.len() == 0 {
+    if filename.is_empty() {
         return None
     };
     
@@ -103,10 +106,7 @@ fn image_exists(filename: &str) -> Option<String>{
 }
 
 pub fn html_output(bookmarks: Vec<Bookmark>) -> String {
-    let image_path = match env::var("RBM_BASE"){
-        Ok(a) => a,
-        Err(_e) => panic!("Set RBM_BASE env")
-    };
+    let image_path = env::var("RBM_BASE").unwrap();
     
     let mut file = File::open(format!("{}/.template.html", &image_path)).expect("Unable to open the file");
     let mut contents = String::new();
@@ -125,30 +125,48 @@ pub fn html_output(bookmarks: Vec<Bookmark>) -> String {
         buffer.push_str(&icon_tag);
     }
 
-    let html = contents.replace("//REPLACE//", &buffer);
-    return html
+    return contents.replace("//REPLACE//", &buffer);
 }
 
-#[test]
-fn line_to_file_test() {
-    let line = String::from("a123|2017-12-18T11:46:29Z|:5|https://www.example.com/|Example|tag1,tag2");
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn output_test() {
+        let b = Bookmark{
+            hash: String::from("a123"),
+            created_at: time::strptime("2017-12-18T11:46:29Z", ISO_TIME_DATE).unwrap(),
+            label: String::from("5"),
+            url: String::from("https://www.example.com/"),
+            title: String::from("Example"),
+            tags: String::from("tag1,tag2"),
+            custom_image: String::from("test")};
+
+        assert_eq!(b.output(), "a123|2017-12-18T11:46:29Z|:5|https://www.example.com/|Example|tag1,tag2|test");
+    }
     
-    assert_eq!(Bookmark{
-        hash: String::from("a123"),
-        created_at: time::strptime("2017-12-18T11:46:29Z", ISO_TIME_DATE).unwrap(),
-        label: String::from(":5"),
-        url: String::from("https://www.example.com/"),
-        title: String::from("Example"),
-        tags: String::from("tag1,tag2")}, Bookmark::new_from_line(line).unwrap())
-}
-
-#[test]
-fn blank_line_to_file_test() {
-    let line = String::from("");
+    #[test]
+    fn line_to_file_test() {
+        let line = String::from("a123|2017-12-18T11:46:29Z|:5|https://www.example.com/|Example|tag1,tag2|test");
     
-    assert!(Bookmark::new_from_line(line).is_err())
-}
+        assert_eq!(Bookmark{
+            hash: String::from("a123"),
+            created_at: time::strptime("2017-12-18T11:46:29Z", ISO_TIME_DATE).unwrap(),
+            label: String::from(":5"),
+            url: String::from("https://www.example.com/"),
+            title: String::from("Example"),
+            tags: String::from("tag1,tag2"),
+            custom_image: String::from("test")}, Bookmark::new_from_line(line).unwrap())
+    }
 
+    #[test]
+    fn blank_line_to_file_test() {
+        let line = String::from("");
+        
+        assert!(Bookmark::new_from_line(line).is_err())
+    }
+}
 
 // Disabled until I can work out how to mock time
 // #[test]

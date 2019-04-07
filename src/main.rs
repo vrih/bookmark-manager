@@ -117,6 +117,9 @@ fn refresh_all_images(path: &str) -> Result<(), io::Error>{
         let r = r.clone();
         thread::spawn(move || {
             for bm in r{
+                if bm.custom_image.len() > 0 {
+                    continue
+                }
                 match update_image(&bm.url, &image_path(&bm.hash)){
                     Ok(_) => println!("Updated: {}", &bm.title),
                     Err(e) => {
